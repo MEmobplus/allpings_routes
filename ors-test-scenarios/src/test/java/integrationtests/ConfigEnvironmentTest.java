@@ -126,8 +126,8 @@ public class ConfigEnvironmentTest extends ContainerInitializer {
         @MethodSource("utils.ContainerInitializer#ContainerTestImageBareImageStream")
         @ParameterizedTest(name = "{0}")
         @Execution(ExecutionMode.CONCURRENT)
-        void testBuildAllBareGraphsWithEnv(ContainerInitializer.ContainerTestImageBare targetImage) throws IOException, InterruptedException {
-            GenericContainer<?> container = initContainer(targetImage, false, "testBuildAllBareGraphsWithEnv", false, Duration.ofSeconds(300));
+        void testActivateAllBareGraphsWithEnv(ContainerInitializer.ContainerTestImageBare targetImage) throws IOException, InterruptedException {
+            GenericContainer<?> container = initContainer(targetImage, false, "testActivateAllBareGraphsWithEnv", true, Duration.ofSeconds(100));
             container.addEnv("ors.engine.profile_default.enabled", "true");
             container.addEnv("ors.engine.profiles.public-transport.enabled", "false");
             container.addEnv("ors.engine.profile_default.build.source_file", "/home/ors/openrouteservice/files/heidelberg.test.pbf");
@@ -178,8 +178,8 @@ public class ConfigEnvironmentTest extends ContainerInitializer {
         @MethodSource("utils.ContainerInitializer#ContainerTestImageDefaultsImageStream")
         @ParameterizedTest(name = "{0}")
         @Execution(ExecutionMode.CONCURRENT)
-        void testBuildEachProfileWithEnvAndOverwriteDefaultConfig(ContainerInitializer.ContainerTestImageDefaults targetImage) {
-            GenericContainer<?> container = initContainer(targetImage, false, "testActivateEachProfileWithEnvAndOverwriteDefaultConfig", false, Duration.ofSeconds(300));
+        void testActivateEachProfileWithEnvAndOverwriteDefaultConfig(ContainerInitializer.ContainerTestImageDefaults targetImage) {
+            GenericContainer<?> container = initContainer(targetImage, false, "testActivateEachProfileWithEnvAndOverwriteDefaultConfig", true, Duration.ofSeconds(100));
 
             // Prepare the environment
             container.addEnv("ors.engine.profile_default.enabled", "false");
