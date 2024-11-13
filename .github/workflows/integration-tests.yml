@@ -29,36 +29,90 @@ jobs:
         id: restore-cached-image
         uses: actions/cache/restore@v4
         with:
-          path: ors-test-scenarios-war-bare.tar
-          key: ${{ runner.os }}-ors-test-scenarios-war-bare-
+          path: |
+            ors-test-scenarios-*.tar
+          key: ${{ runner.os }}-ors-test-scenarios-
       - name: Load the docker image
-        # Load the docker image if the cache hit
-        if: ${{ hashFiles('ors-test-scenarios-war-bare.tar') != '' }}
         run: |
-          echo "Loading the docker image"
-          docker load -i ors-test-scenarios-war-bare.tar
+          echo "Loading the docker images"
+          if [ -f ors-test-scenarios-war.tar ]; then
+            docker load -i ors-test-scenarios-war.tar
+          fi
+          if [ -f ors-test-scenarios-jar.tar ]; then
+              docker load -i ors-test-scenarios-jar.tar
+          fi
+          if [ -f ors-test-scenarios-maven.tar ]; then
+              docker load -i ors-test-scenarios-maven.tar
+          fi
+          if [ -f ors-test-scenarios-war-bare.tar ]; then
+              docker load -i ors-test-scenarios-war-bare.tar
+          fi
+          if [ -f ors-test-scenarios-jar-bare.tar ]; then
+              docker load -i ors-test-scenarios-jar-bare.tar
+          fi
+          if [ -f ors-test-scenarios-maven-bare.tar ]; then
+              docker load -i ors-test-scenarios-maven-bare.tar
+          fi
       - name: Cache Maven dependencies for the ors maven project
         run: |
           echo "Caching the maven dependencies"
           mvn -pl ors-test-scenarios package -Dmaven.test.skip=true -B dependency:go-offline -q
-      - name: Build the docker image with the one shot builder
+      - name: Test if the graphs need to be rebuilt
+        id: check-graphs
         run: |
           echo "Building the docker image with the one shot builder"
           mvn -pl ors-test-scenarios test
+          echo "Export the docker image"
+          docker save -o test.tar ors-test-scenarios-war-bare:latest
+          echo "Check if the test.tar differs from the cached image"
+          if [ cmp --silent test.tar ors-test-scenarios-war-bare.tar ]; then
+            echo "We can download the shared graphs"
+            # job output to true echo "test=hello" >> "$GITHUB_OUTPUT"
+            echo "rebuild=false" >> "$GITHUB_ENV"
+          else
+            echo "The image is different, we need to rebuild shared graphs"
+            echo "rebuild=true" >> "$GITHUB_ENV"
+          fi
         env:
           ONE_SHOT_IMAGE_BUILDER: true
-      - name: Export the docker image to be cached
-        run: |
-          echo "Exporting the docker image"
-          docker save -o ors-test-scenarios-war-bare.tar ors-test-scenarios-war-bare:latest
-      - name: Save the docker image to the cache
-        uses: actions/cache/save@v4
+      - name: Restore shared graphs
+        id: restore-cached-graphs
+        if: steps.check-graphs.outputs.rebuild == 'false'
+        uses: actions/cache/restore@v4
         with:
-          path: ors-test-scenarios-war-bare.tar
-          key: ${{ runner.os }}-ors-test-scenarios-war-bare-${{ hashFiles('ors-test-scenarios-war-bare.tar') }}
+          path: ors-test-scenarios/graphs-integrationtests
+          key: ${{ runner.os }}-ors-test-scenarios-graphs-integrationtests-
       - name: Run integration tests
         run: |
           echo "List all docker images"
           docker image ls -a
           echo "Running integration tests"
           mvn -pl ors-test-scenarios test -Dtest=ConfigEnvironmentTest
+      - name: Export the docker image to be cached
+        run: |
+          echo "Exporting the complete docker images"
+          docker save -o ors-test-scenarios-war.tar ors-test-scenarios-war:latest
+          docker save -o ors-test-scenarios-jar.tar ors-test-scenarios-jar:latest
+          docker save -o ors-test-scenarios-maven.tar ors-test-scenarios-maven:latest
+
+          echo "Exporting the bare docker images"
+          docker save -o ors-test-scenarios-war-bare.tar ors-test-scenarios-war-bare:latest
+          docker save -o ors-test-scenarios-jar-bare.tar ors-test-scenarios-jar-bare:latest
+          docker save -o ors-test-scenarios-maven-bare.tar ors-test-scenarios-maven-bare:latest
+
+      - name: Save the docker image to the cache
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ors-test-scenarios-war.tar
+            ors-test-scenarios-jar.tar
+            ors-test-scenarios-maven.tar
+            ors-test-scenarios-war-bare.tar
+            ors-test-scenarios-jar-bare.tar
+            ors-test-scenarios-maven-bare.tar
+          key: ${{ runner.os }}-ors-test-scenarios-${{ hashFiles('ors-test-scenarios-war.tar', 'ors-test-scenarios-jar.tar', 'ors-test-scenarios-maven.tar', 'ors-test-scenarios-war-bare.tar', 'ors-test-scenarios-jar-bare.tar', 'ors-test-scenarios-maven-bare.tar') }}
+      - name: Save the shared graphs to the cache
+        uses: actions/cache/save@v4
+        with:
+          path: ors-test-scenarios/graphs-integrationtests
+          key: ${{ runner.os }}-ors-test-scenarios-graphs-integrationtests-${{ hashFiles('ors-test-scenarios/graphs-integrationtests') }}
