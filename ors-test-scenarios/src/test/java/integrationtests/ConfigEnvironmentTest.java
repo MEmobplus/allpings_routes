@@ -127,7 +127,7 @@ public class ConfigEnvironmentTest extends ContainerInitializer {
         @ParameterizedTest(name = "{0}")
         @Execution(ExecutionMode.CONCURRENT)
         void testActivateAllBareGraphsWithEnv(ContainerInitializer.ContainerTestImageBare targetImage) throws IOException, InterruptedException {
-            GenericContainer<?> container = initContainer(targetImage, false, "testActivateAllBareGraphsWithEnv", true, Duration.ofSeconds(100));
+            GenericContainer<?> container = initContainer(targetImage, false, "testActivateAllBareGraphsWithEnv");
             container.addEnv("ors.engine.profile_default.enabled", "true");
             container.addEnv("ors.engine.profiles.public-transport.enabled", "false");
             container.addEnv("ors.engine.profile_default.build.source_file", "/home/ors/openrouteservice/files/heidelberg.test.pbf");
@@ -179,7 +179,7 @@ public class ConfigEnvironmentTest extends ContainerInitializer {
         @ParameterizedTest(name = "{0}")
         @Execution(ExecutionMode.CONCURRENT)
         void testActivateEachProfileWithEnvAndOverwriteDefaultConfig(ContainerInitializer.ContainerTestImageDefaults targetImage) {
-            GenericContainer<?> container = initContainer(targetImage, false, "testActivateEachProfileWithEnvAndOverwriteDefaultConfig", true, Duration.ofSeconds(100));
+            GenericContainer<?> container = initContainer(targetImage, false, "testActivateEachProfileWithEnvAndOverwriteDefaultConfig");
 
             // Prepare the environment
             container.addEnv("ors.engine.profile_default.enabled", "false");
