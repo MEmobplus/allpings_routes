@@ -18,6 +18,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Setup crabz compression
+        run: |
+          echo "Setting up crabz"
+          curl -sS https://webi.sh/crabz | sh
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -25,18 +29,25 @@ jobs:
           java-version: '17'
           cache: 'maven'
           cache-dependency-path: ./pom.xml
-      - name: Restore cached ors test image
+      - name: Restore cached resources
         id: restore-cached-image
+        continue-on-error: true
         uses: actions/cache/restore@v4
         with:
           path: |
-            ors-test-scenario-builder.tar
+            ors-test-scenario-builder.tar.gz
+            ors-test-scenarios-war-bare.tar.gz
+            ors-test-scenarios-jar-bare.tar.gz
+            ors-test-scenarios-maven-bare.tar.gz
+            ors-test-scenarios-graphs-integrationtests.tar.gz
           key: ${{ runner.os }}-ors-test-scenario-builder
       - name: Load the docker image
         id: load-docker-image
         run: |
           echo "Loading the docker images"
           if [ -f ors-test-scenario-builder.tar ]; then
+            # Extract the docker image
+            crabz -d ors-test-scenario-builder.tar.gz -o ors-test-scenario-builder.tar
             docker load -i ors-test-scenario-builder.tar
             docker inspect --format {{.Id}} ors-test-scenario-builder:latest | awk -F: '{print $2}' > last_image_build_id.log || touch last_image_build_id.log
             # I get the docker last image id from a file
@@ -44,18 +55,25 @@ jobs:
             # Add last_docker_id to output
             echo "last_docker_id=$last_docker_id" >> "$GITHUB_ENV"
           fi
+          echo "Loading remaining docker images"
+          if [ -f ors-test-scenarios-war-bare.tar ]; then
+              crabz -d ors-test-scenarios-war-bare.tar.gz -o ors-test-scenarios-war-bare.tar
+              docker load -i ors-test-scenarios-war-bare.tar
+          fi
+          if [ -f ors-test-scenarios-jar-bare.tar ]; then
+              crabz -d ors-test-scenarios-jar-bare.tar.gz -o ors-test-scenarios-jar-bare.tar
+              docker load -i ors-test-scenarios-jar-bare.tar
+          fi
+          if [ -f ors-test-scenarios-maven-bare.tar ]; then
+              crabz -d ors-test-scenarios-maven-bare.tar.gz -o ors-test-scenarios-maven-bare.tar
+              docker load -i ors-test-scenarios-maven-bare.tar
+          fi
           echo "List all docker images"
           docker image ls -a
       - name: Cache Maven dependencies for the ors maven project
         run: |
           echo "Caching the maven dependencies"
           mvn -pl ors-test-scenarios package -Dmaven.test.skip=true -B dependency:go-offline -q
-      - name: Restore shared graphs
-        id: restore-cached-graphs
-        uses: actions/cache/restore@v4
-        with:
-          path: ors-test-scenarios/graphs-integrationtests
-          key: ${{ runner.os }}-ors-test-scenarios-graphs-integrationtests-${{ env.last_docker_id }}
       - name: Test if the graphs need to be rebuilt
         id: build-one-shot-image
         run: |
@@ -65,11 +83,9 @@ jobs:
           docker inspect --format {{.Id}} ors-test-scenario-builder:latest | awk -F: '{print $2}' > docker_id_after_build.log || touch docker_id_after_build.log
           docker_id_after_build=$(cat docker_id_after_build.log)
           # if one is empty or both are different, then rebuild the graphs
-          if [ -z "${{ env.last_docker_id }}" ]; then
-            echo "Last docker id is empty, rebuilding the graphs"
-            rm -rf ors-test-scenarios/graphs-integrationtests
-          elif [ "$docker_id_after_build" != "${{ env.last_docker_id }}" ]; then
-            echo "Docker id after build is different from the last one, rebuilding the graphs"
+          if [ -z "${{ env.last_docker_id }}" ] || [ "$docker_id_after_build" != "${{ env.last_docker_id }}" ]; then
+            echo "Rebuilding the graphs"
+            rm -rf ors-test-scenarios-graphs-integrationtests.tar.gz
             rm -rf ors-test-scenarios/graphs-integrationtests
           else
             echo "Docker id after build is the same as the last one, no need to rebuild the graphs"
@@ -86,31 +102,43 @@ jobs:
           mvn -pl ors-test-scenarios -Dtest=utils.OneShotImageBuilderTest#oneShotGraphBuilder test
         env:
           ONE_SHOT_IMAGE_BUILDER: true
-      - name: Export the docker image to be cached
-        run: |
-          echo "Exporting the complete builder image"
-          docker save -o ors-test-scenario-builder.tar ors-test-scenario-builder:latest
-      - name: Save the docker image to the cache
-        uses: actions/cache/save@v4
-        continue-on-error: true
-        with:
-          path: |
-            ors-test-scenario-builder.tar
-          key: ${{ runner.os }}-ors-test-scenario-builder
       - name: Run integration tests
         run: |
           echo "Running integration tests"
           mvn -pl ors-test-scenarios test -Dtest=ConfigEnvironmentTest
-      - name: Delete previously cached graph
+      - name: Export the docker image to be cached
+        run: |
+          echo "Exporting the complete builder image"
+
+          docker save -o ors-test-scenario-builder.tar ors-test-scenario-builder:latest || echo "Could not save ors-test-scenario-builder"
+          crabz -l 9 -p $(nproc --all) ors-test-scenario-builder.tar -o ors-test-scenario-builder.tar.gz || echo "Could not compress ors-test-scenario-builder"
+
+          docker save -o ors-test-scenarios-war-bare.tar ors-test-scenarios-war-bare:latest || echo "Could not save ors-test-scenarios-war-bare"
+          crabz -l 9 -p $(nproc --all) ors-test-scenarios-war-bare.tar -o ors-test-scenarios-war-bare.tar.gz || echo "Could not save ors-test-scenarios-war-bare"
+
+          docker save -o ors-test-scenarios-jar-bare.tar ors-test-scenarios-jar-bare:latest || echo "Could not save ors-test-scenarios-jar-bare"
+          crabz -l 9 -p $(nproc --all) ors-test-scenarios-jar-bare.tar -o ors-test-scenarios-jar-bare.tar.gz || echo "Could not save ors-test-scenarios-jar-bare"
+          
+          docker save -o ors-test-scenarios-maven-bare.tar ors-test-scenarios-maven-bare:latest || echo "Could not save ors-test-scenarios-maven-bare"
+          crabz -l 9 -p $(nproc --all) ors-test-scenarios-maven-bare.tar -o ors-test-scenarios-maven-bare.tar.gz || echo "Could not save ors-test-scenarios-maven-bare"
+          
+          # Tar gz the graphs as well
+          tar -cv ors-test-scenarios/graphs-integrationtests | crabz -o ors-test-scenarios-graphs-integrationtests.tar.gz
+      - name: Delete previously cached resources
         continue-on-error: true
         run: |
           gh extension install actions/gh-actions-cache
-          gh actions-cache delete "${{ runner.os }}-ors-test-scenarios-graphs-integrationtests-${{ env.docker_id_after_build }}" --confirm
+          gh actions-cache delete "${{ runner.os }}-ors-test-scenario-builder" --confirm
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Save the graphs to cache
-        continue-on-error: true
+      - name: Save the resources to cache
         uses: actions/cache/save@v4
+        continue-on-error: true
         with:
-          path: ors-test-scenarios/graphs-integrationtests
-          key: ${{ runner.os }}-ors-test-scenarios-graphs-integrationtests-${{ env.docker_id_after_build }}
+          path: |
+            ors-test-scenario-builder.tar.gz
+            ors-test-scenarios-war-bare.tar.gz
+            ors-test-scenarios-jar-bare.tar.gz
+            ors-test-scenarios-maven-bare.tar.gz
+            ors-test-scenarios-graphs-integrationtests.tar.gz
+          key: ${{ runner.os }}-ors-test-scenario-builder
