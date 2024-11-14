@@ -77,10 +77,6 @@ jobs:
         run: |
           echo "Rebuilding the shared graphs, if needed"
           mvn -pl ors-test-scenarios -Dtest=utils.OneShotImageBuilderTest#oneShotGraphBuilder test
-      - name: Run integration tests
-        run: |
-          echo "Running integration tests"
-          mvn -pl ors-test-scenarios test -Dtest=ConfigEnvironmentTest
       - name: Export the docker image to be cached
         run: |
           echo "Exporting the complete builder image"
@@ -96,3 +92,7 @@ jobs:
         with:
           path: ors-test-scenarios/graphs-integrationtests
           key: ${{ runner.os }}-ors-test-scenarios-graphs-integrationtests-${{ steps.build-one-shot-image.outputs.docker_id_after_build }}
+      - name: Run integration tests
+        run: |
+          echo "Running integration tests"
+          mvn -pl ors-test-scenarios test -Dtest=ConfigEnvironmentTest
