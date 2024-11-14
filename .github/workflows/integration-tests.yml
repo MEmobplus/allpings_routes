@@ -68,6 +68,8 @@ jobs:
           echo "last_docker_id=$docker_id_after_build" >> "$GITHUB_ENV"
           echo "List all docker images"
           docker image ls -a
+        env:
+          ONE_SHOT_IMAGE_BUILDER: true
       - name: Restore shared graphs
         id: restore-cached-graphs
         if: steps.check-graphs.outputs.rebuild_graphs == 'false'
@@ -79,6 +81,8 @@ jobs:
         run: |
           echo "Rebuilding the shared graphs, if needed"
           mvn -pl ors-test-scenarios -Dtest=utils.OneShotImageBuilderTest#oneShotGraphBuilder test
+        env:
+          ONE_SHOT_IMAGE_BUILDER: true
       - name: Export the docker image to be cached
         run: |
           echo "Exporting the complete builder image"
