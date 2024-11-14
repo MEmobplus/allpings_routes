@@ -117,6 +117,14 @@ export default withMermaid({
                             {
                                 text: 'Configuration', collapsed: true, link: '/run-instance/configuration/',
                                 items: [
+                                    {
+                                        text: 'How to set Properties',
+                                        link: '/run-instance/configuration/how-to-set-properties.md'
+                                    },
+                                    {
+                                        text: 'Configuration Properties',
+                                        link: '/run-instance/configuration/configuration-properties.md'
+                                    },
                                     {text: 'server', link: '/run-instance/configuration/server.md'},
                                     {text: 'logging', link: '/run-instance/configuration/logging.md'},
                                     {
