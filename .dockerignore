@@ -1,6 +1,7 @@
 # Ignore all files
 **
 # Include the following files
+!ors-test-scenarios/src/test/resources/IntegrationTests.Dockerfile
 !pom.xml
 !ors-engine/pom.xml
 !ors-engine/src/main
@@ -9,11 +10,8 @@
 !ors-report-aggregation/pom.xml
 !ors-test-scenarios/pom.xml
 # Special includes
-!ors-config.env
 !ors-config.yml
-!docker-entrypoint.sh
 !ors-test-scenarios/src/test/resources/maven-entrypoint.sh
 !ors-api/src/test/files/heidelberg.test.pbf
-!ors-api/src/test/files/elevation/srtm_38_03.gh
 !ors-api/src/test/files/vrn_gtfs_cut.zip
 !ors-api/src/main/resources/ors-config-sample.json
