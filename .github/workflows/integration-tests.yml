@@ -54,7 +54,7 @@ jobs:
         id: build-one-shot-image
         run: |
           echo "Building the docker image with the one shot builder"
-          mvn -pl ors-test-scenarios test -Dtest=utils.OneShotImageBuilderTest,oneShotImageBuilder
+          mvn -pl ors-test-scenarios -Dtest=utils.OneShotImageBuilderTest#oneShotImageBuilder test
           
           docker_id_after_build=$(docker inspect --format {{.Id}} ors-test-scenario-builder:latest)
           if [ "$docker_id_after_build" != ${{ steps.load-docker-image.outputs.last_docker_id }} ]; then
@@ -66,8 +66,6 @@ jobs:
           echo "last_docker_id=$docker_id_after_build" >> "$GITHUB_ENV"
           echo "List all docker images"
           docker image ls -a
-        env:
-          ONE_SHOT_IMAGE_BUILDER: true
       - name: Restore shared graphs
         id: restore-cached-graphs
         if: steps.check-graphs.outputs.rebuild_graphs == 'false'
@@ -78,9 +76,7 @@ jobs:
       - name: Rebuild shared graphs
         run: |
           echo "Rebuilding the shared graphs, if needed"
-          mvn -pl ors-test-scenarios test -Dtest=utils.OneShotImageBuilderTest,oneShotGraphBuilder
-        env:
-          ONE_SHOT_IMAGE_BUILDER: true
+          mvn -pl ors-test-scenarios -Dtest=utils.OneShotImageBuilderTest#oneShotGraphBuilder test
       - name: Run integration tests
         run: |
           echo "Running integration tests"
