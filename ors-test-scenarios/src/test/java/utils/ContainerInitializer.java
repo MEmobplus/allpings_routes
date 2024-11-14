@@ -13,6 +13,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import static utils.TestContainersHelper.healthyOrsWaitStrategy;
@@ -133,6 +134,13 @@ public abstract class ContainerInitializer {
         if (startupTimeout == null) {
             startupTimeout = DEFAULT_STARTUP_TIMEOUT;
         }
+
+        // Set cache chain else testcontainers will rebuild graphs in CI all the time.
+        // Automatic efficient caching only works locally.
+        Set<String> cacheChain = Set.of(
+                ContainterBuildStage.ORS_TEST_SCENARIO_BUILDER.getName()
+        );
+
         // @formatter:off
         Path rootPath = Path.of("../");
         GenericContainer<?> container = new GenericContainer<>(
@@ -149,10 +157,11 @@ public abstract class ContainerInitializer {
                         .withFileFromPath("ors-api/src/test/files/heidelberg.test.pbf", rootPath.resolve("ors-api/src/test/files/heidelberg.test.pbf"))
                         .withFileFromPath("ors-api/src/test/files/vrn_gtfs_cut.zip", rootPath.resolve("ors-api/src/test/files/vrn_gtfs_cut.zip"))
                         .withFileFromPath("ors-config.yml", rootPath.resolve("ors-config.yml"))
-                        .withFileFromPath(".dockerignore", rootPath.resolve(".dockerignore"))
+                        .withFileFromPath(".dockerfile", rootPath.resolve("ors-test-scenarios/src/test/resources/Dockerfile.dockerignore"))
                         // Special case for maven container entrypoint. This is not needed for the other containers.
                         .withFileFromPath("./ors-test-scenarios/src/test/resources/maven-entrypoint.sh", Path.of("./src/test/resources/maven-entrypoint.sh"))
                         .withTarget(containerTestImage.getName())
+                        .withBuildImageCmdModifier(cmd -> cmd.withCacheFrom(cacheChain))
         )
                 .withEnv(defaultEnv)
                 .withExposedPorts(8080)
@@ -258,6 +267,17 @@ public abstract class ContainerInitializer {
                 default:
             }
             return command;
+        }
+    }
+
+    @Getter
+    public enum ContainterBuildStage implements ContainerTestImage {
+        ORS_TEST_SCENARIO_BUILDER("ors-test-scenario-builder");
+
+        private final String name;
+
+        ContainterBuildStage(String name) {
+            this.name = name;
         }
     }
 

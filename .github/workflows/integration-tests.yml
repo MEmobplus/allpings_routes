@@ -30,89 +30,73 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: |
-            ors-test-scenarios-*.tar
-          key: ${{ runner.os }}-ors-test-scenarios-
+            ors-test-scenario-builder.tar
+          key: ${{ runner.os }}-ors-test-scenario-builder
       - name: Load the docker image
+        id: load-docker-image
         run: |
           echo "Loading the docker images"
-          if [ -f ors-test-scenarios-war.tar ]; then
-            docker load -i ors-test-scenarios-war.tar
+          if [ -f ors-test-scenario-builder.tar ]; then
+            docker load -i ors-test-scenario-builder.tar
+            docker inspect --format {{.Id}} ors-test-scenario-builder:latest > last_image_build_id.log || touch last_image_build_id.log
+            # I get the docker last image id from a file
+            last_docker_id=$(cat last_image_build_id.log)
+            # Add last_docker_id to output
+            echo "last_docker_id=$last_docker_id" >> "$GITHUB_ENV"
           fi
-          if [ -f ors-test-scenarios-jar.tar ]; then
-              docker load -i ors-test-scenarios-jar.tar
-          fi
-          if [ -f ors-test-scenarios-maven.tar ]; then
-              docker load -i ors-test-scenarios-maven.tar
-          fi
-          if [ -f ors-test-scenarios-war-bare.tar ]; then
-              docker load -i ors-test-scenarios-war-bare.tar
-          fi
-          if [ -f ors-test-scenarios-jar-bare.tar ]; then
-              docker load -i ors-test-scenarios-jar-bare.tar
-          fi
-          if [ -f ors-test-scenarios-maven-bare.tar ]; then
-              docker load -i ors-test-scenarios-maven-bare.tar
-          fi
+          echo "List all docker images"
+          docker image ls -a
       - name: Cache Maven dependencies for the ors maven project
         run: |
           echo "Caching the maven dependencies"
           mvn -pl ors-test-scenarios package -Dmaven.test.skip=true -B dependency:go-offline -q
       - name: Test if the graphs need to be rebuilt
-        id: check-graphs
+        id: build-one-shot-image
         run: |
           echo "Building the docker image with the one shot builder"
-          mvn -pl ors-test-scenarios test
-          echo "Export the docker image"
-          docker save -o test.tar ors-test-scenarios-war-bare:latest
-          echo "Check if the test.tar differs from the cached image"
-          if [ cmp --silent test.tar ors-test-scenarios-war-bare.tar ]; then
-            echo "We can download the shared graphs"
-            # job output to true echo "test=hello" >> "$GITHUB_OUTPUT"
-            echo "rebuild=false" >> "$GITHUB_ENV"
+          mvn -pl ors-test-scenarios test -Dtest=utils.OneShotImageBuilderTest,oneShotImageBuilder
+          
+          docker_id_after_build=$(docker inspect --format {{.Id}} ors-test-scenario-builder:latest)
+          if [ "$docker_id_after_build" != ${{ steps.load-docker-image.outputs.last_docker_id }} ]; then
+            echo "rebuild_graphs=true" >> "$GITHUB_ENV"
           else
-            echo "The image is different, we need to rebuild shared graphs"
-            echo "rebuild=true" >> "$GITHUB_ENV"
+            echo "rebuild_graphs=false" >> "$GITHUB_ENV"
           fi
+          # Save the last docker id to output
+          echo "last_docker_id=$docker_id_after_build" >> "$GITHUB_ENV"
+          echo "List all docker images"
+          docker image ls -a
         env:
           ONE_SHOT_IMAGE_BUILDER: true
       - name: Restore shared graphs
         id: restore-cached-graphs
-        if: steps.check-graphs.outputs.rebuild == 'false'
+        if: steps.check-graphs.outputs.rebuild_graphs == 'false'
         uses: actions/cache/restore@v4
         with:
           path: ors-test-scenarios/graphs-integrationtests
-          key: ${{ runner.os }}-ors-test-scenarios-graphs-integrationtests-
+          key: ${{ runner.os }}-ors-test-scenarios-graphs-integrationtests-${{ steps.load-docker-image.outputs.last_docker_id }}
+      - name: Rebuild shared graphs
+        run: |
+          echo "Rebuilding the shared graphs, if needed"
+          mvn -pl ors-test-scenarios test -Dtest=utils.OneShotImageBuilderTest,oneShotGraphBuilder
+        env:
+          ONE_SHOT_IMAGE_BUILDER: true
       - name: Run integration tests
         run: |
-          echo "List all docker images"
-          docker image ls -a
           echo "Running integration tests"
           mvn -pl ors-test-scenarios test -Dtest=ConfigEnvironmentTest
       - name: Export the docker image to be cached
         run: |
-          echo "Exporting the complete docker images"
-          docker save -o ors-test-scenarios-war.tar ors-test-scenarios-war:latest
-          docker save -o ors-test-scenarios-jar.tar ors-test-scenarios-jar:latest
-          docker save -o ors-test-scenarios-maven.tar ors-test-scenarios-maven:latest
-
-          echo "Exporting the bare docker images"
-          docker save -o ors-test-scenarios-war-bare.tar ors-test-scenarios-war-bare:latest
-          docker save -o ors-test-scenarios-jar-bare.tar ors-test-scenarios-jar-bare:latest
-          docker save -o ors-test-scenarios-maven-bare.tar ors-test-scenarios-maven-bare:latest
-
+          echo "Exporting the complete builder image"
+          docker save -o ors-test-scenario-builder.tar ors-test-scenario-builder:latest
       - name: Save the docker image to the cache
         uses: actions/cache/save@v4
         with:
           path: |
-            ors-test-scenarios-war.tar
-            ors-test-scenarios-jar.tar
-            ors-test-scenarios-maven.tar
-            ors-test-scenarios-war-bare.tar
-            ors-test-scenarios-jar-bare.tar
-            ors-test-scenarios-maven-bare.tar
-          key: ${{ runner.os }}-ors-test-scenarios-${{ hashFiles('ors-test-scenarios-war.tar', 'ors-test-scenarios-jar.tar', 'ors-test-scenarios-maven.tar', 'ors-test-scenarios-war-bare.tar', 'ors-test-scenarios-jar-bare.tar', 'ors-test-scenarios-maven-bare.tar') }}
+            ors-test-scenario-builder.tar
+          key: ${{ runner.os }}-ors-test-scenario-builder
       - name: Save the shared graphs to the cache
         uses: actions/cache/save@v4
         with:
           path: ors-test-scenarios/graphs-integrationtests
-          key: ${{ runner.os }}-ors-test-scenarios-graphs-integrationtests-${{ hashFiles('ors-test-scenarios/graphs-integrationtests') }}
+          key: ${{ runner.os }}-ors-test-scenarios-graphs-integrationtests-${{ steps.build-one-shot-image.outputs.docker_id_after_build }}

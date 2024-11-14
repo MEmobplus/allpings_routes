@@ -10,6 +10,9 @@ import org.testcontainers.containers.wait.strategy.ShellStrategy;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.junit.jupiter.TestcontainersExtension;
 
+import java.io.IOException;
+
+import static utils.ContainerInitializer.buildSharedLayersAndGraphs;
 import static utils.ContainerInitializer.initContainerWithSharedGraphs;
 
 /**
@@ -23,18 +26,17 @@ import static utils.ContainerInitializer.initContainerWithSharedGraphs;
 class OneShotImageBuilderTest {
 
     @Test
+    void oneShotGraphBuilder() throws IOException, InterruptedException {
+        buildSharedLayersAndGraphs();
+        Assertions.assertTrue(true);
+    }
+
+    @Test
     void oneShotImageBuilder() {
         GenericContainer<?> containerWar;
-        try {
-            containerWar = initContainerWithSharedGraphs(ContainerInitializer.ContainerTestImageBare.WAR_CONTAINER_BARE, false);
-            containerWar.setWaitStrategy(new ShellStrategy());
-            containerWar.setDockerImageName(ContainerInitializer.ContainerTestImageBare.WAR_CONTAINER_BARE.getName());
-            containerWar.start();
-        } catch (Exception e) {
-            containerWar = initContainerWithSharedGraphs(ContainerInitializer.ContainerTestImageBare.WAR_CONTAINER_BARE, false);
-            containerWar.setWaitStrategy(new ShellStrategy());
-            containerWar.start();
-        }
+        containerWar = initContainerWithSharedGraphs(ContainerInitializer.ContainterBuildStage.ORS_TEST_SCENARIO_BUILDER, false);
+        containerWar.setWaitStrategy(new ShellStrategy());
+        containerWar.start();
 
         Assertions.assertTrue(containerWar.isRunning());
         containerWar.stop();
