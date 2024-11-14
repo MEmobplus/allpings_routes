@@ -56,8 +56,10 @@ jobs:
           echo "Building the docker image with the one shot builder"
           mvn -pl ors-test-scenarios -Dtest=utils.OneShotImageBuilderTest#oneShotImageBuilder test
           
-          docker_id_after_build=$(docker inspect --format {{.Id}} ors-test-scenario-builder:latest)
-          if [ "$docker_id_after_build" != ${{ steps.load-docker-image.outputs.last_docker_id }} ]; then
+          docker inspect --format {{.Id}} ors-test-scenario-builder:latest > docker_id_after_build.log || touch docker_id_after_build.log
+          docker_id_after_build=$(cat docker_id_after_build.log)
+          # if one is empty or both are different, then rebuild the graphs
+          if [ -z $last_docker_id ] || [ "$docker_id_after_build" != ${{ steps.load-docker-image.outputs.last_docker_id }} ]; then
             echo "rebuild_graphs=true" >> "$GITHUB_ENV"
           else
             echo "rebuild_graphs=false" >> "$GITHUB_ENV"
