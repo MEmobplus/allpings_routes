@@ -18,12 +18,13 @@ ARG CONTAINER_WORK_DIR=/home/ors/openrouteservice
 
 FROM docker.io/maven:3.9.9-amazoncorretto-21-alpine AS ors-test-scenario-builder
 
-RUN apk add --no-cache bash yq zip
+RUN apk add --no-cache bash=5.2.26-r0 yq=4.44.1-r2 zip=3.0-r12 && \
+    rm -rf /var/cache/apk/*
 
 ARG CONTAINER_BUILD_DIR
 
 # Set the working directory
-WORKDIR $CONTAINER_BUILD_DIR
+WORKDIR "$CONTAINER_BUILD_DIR"
 
 # Copy pom.xml files
 COPY pom.xml $CONTAINER_BUILD_DIR/pom.xml
@@ -36,17 +37,18 @@ COPY ors-test-scenarios/pom.xml $CONTAINER_BUILD_DIR/ors-test-scenarios/pom.xml
 RUN mvn dependency:go-offline -B -q
 
 # Copy project files
-COPY ors-api $CONTAINER_BUILD_DIR/ors-api
-COPY ors-engine $CONTAINER_BUILD_DIR/ors-engine
-COPY ors-report-aggregation $CONTAINER_BUILD_DIR/ors-report-aggregation
+COPY ors-api "$CONTAINER_BUILD_DIR"/ors-api
+COPY ors-engine "$CONTAINER_BUILD_DIR"/ors-engine
+COPY ors-report-aggregation "$CONTAINER_BUILD_DIR"/ors-report-aggregation
 
 # Build the projects war and jar files
-RUN mvn clean package -q -DskipTests -Dmaven.test.skip=true -PbuildWar -T 1C -pl '!:ors-test-scenarios,!:ors-report-aggregation' && \
-    mvn package -q -DskipTests -Dmaven.test.skip=true -PbuildJar -T 1C -pl '!:ors-test-scenarios,!:ors-report-aggregation' && \
-    mvn install -q -DskipTests -Dmaven.test.skip=true -PbuildJar -T 1C -pl '!:ors-test-scenarios,!:ors-report-aggregation'
+RUN mvn clean package -q -DskipTests -Dmaven.test.skip=true -PbuildWar -T 1C -pl \
+    '!:ors-test-scenarios,!:ors-report-aggregation' && \
+    mvn package install -q -DskipTests -Dmaven.test.skip=true -PbuildJar -T 1C -pl \
+    '!:ors-test-scenarios,!:ors-report-aggregation'
 
 # Prepare the config file
-COPY ors-config.yml $CONTAINER_BUILD_DIR/ors-config.yml
+COPY ors-config.yml "$CONTAINER_BUILD_DIR"/ors-config.yml
 
 RUN yq -i '\
     .server.port = 8080 | \
@@ -57,7 +59,7 @@ RUN yq -i '\
     .ors.engine.profile_default.graph_path = "/home/ors/openrouteservice/graphs" | \
     .ors.engine.profiles.public-transport.gtfs_file = "/home/ors/openrouteservice/files/vrn_gtfs_cut.zip" | \
     .ors.engine.profile_default.build.source_file = "/home/ors/openrouteservice/files/heidelberg.test.pbf"\
-    ' $CONTAINER_BUILD_DIR/ors-config.yml
+    ' "$CONTAINER_BUILD_DIR"/ors-config.yml
 
 FROM ors-test-scenario-builder AS ors-test-scenarios-maven-bare
 # Build: docker build --target ors-test-scenarios-maven-bare --tag ors-test-scenarios-maven-bare:latest -f ors-test-scenarios/src/test/resources/Dockerfile .
@@ -67,22 +69,26 @@ ARG CONTAINER_BUILD_DIR
 
 WORKDIR $CONTAINER_WORK_DIR
 
-RUN mkdir -p $CONTAINER_WORK_DIR/logs $CONTAINER_WORK_DIR/files $CONTAINER_WORK_DIR/graphs $CONTAINER_WORK_DIR/elevation_cache \
-    $CONTAINER_WORK_DIR/graph_repo
+RUN mkdir -p "$CONTAINER_WORK_DIR"/logs  \
+    "$CONTAINER_WORK_DIR"/files  \
+    "$CONTAINER_WORK_DIR"/graphs  \
+    "$CONTAINER_WORK_DIR"/elevation_cache \
+    "$CONTAINER_WORK_DIR"/graph_repo
 
 COPY --from=ors-test-scenario-builder $CONTAINER_BUILD_DIR/ "$CONTAINER_WORK_DIR"/
 COPY ors-api/src/test/files/heidelberg.test.pbf "$CONTAINER_WORK_DIR"/files/heidelberg.test.pbf
 COPY ors-api/src/test/files/vrn_gtfs_cut.zip "$CONTAINER_WORK_DIR"/files/vrn_gtfs_cut.zip
 
-RUN mv $CONTAINER_WORK_DIR/ors-config.yml $CONTAINER_WORK_DIR/ors-config.yml.deactivated && \
-    mvn install -q -o -DskipTests -Dmaven.test.skip=true -PbuildFatJar -T 1C -pl '!:ors-test-scenarios,!:ors-report-aggregation,!:ors-engine'
+RUN mv "$CONTAINER_WORK_DIR"/ors-config.yml "$CONTAINER_WORK_DIR"/ors-config.yml.deactivated && \
+    mvn install -q -o -DskipTests -Dmaven.test.skip=true -PbuildFatJar -T 1C -pl \
+    '!:ors-test-scenarios,!:ors-report-aggregation,!:ors-engine'
 
 EXPOSE 8080
 
 
 FROM docker.io/amazoncorretto:21.0.4-alpine3.20 AS ors-test-scenarios-jar-bare
 # Build: docker build --target ors-test-scenarios-jar-bare --tag ors-test-scenarios-jar-bare:latest -f ors-test-scenarios/src/test/resources/Dockerfile .
-RUN apk add --no-cache bash yq zip
+RUN apk add --no-cache bash=5.2.26-r0 yq=4.44.1-r2 zip=3.0-r12
 
 ARG CONTAINER_WORK_DIR
 ARG CONTAINER_BUILD_DIR
@@ -95,8 +101,11 @@ COPY ors-api/src/test/files/heidelberg.test.pbf "$CONTAINER_WORK_DIR"/files/heid
 COPY ors-api/src/test/files/vrn_gtfs_cut.zip "$CONTAINER_WORK_DIR"/files/vrn_gtfs_cut.zip
 
 
-RUN mkdir -p $CONTAINER_WORK_DIR/logs $CONTAINER_WORK_DIR/files $CONTAINER_WORK_DIR/graphs $CONTAINER_WORK_DIR/elevation_cache \
-    $CONTAINER_WORK_DIR/graph_repo
+RUN mkdir -p "$CONTAINER_WORK_DIR"/logs  \
+    "$CONTAINER_WORK_DIR"/files  \
+    "$CONTAINER_WORK_DIR"/graphs  \
+    "$CONTAINER_WORK_DIR"/elevation_cache \
+    "$CONTAINER_WORK_DIR"/graph_repo
 
 
 ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
@@ -106,16 +115,20 @@ EXPOSE 8080
 FROM docker.io/tomcat:10.1.30-jdk21-temurin-jammy AS ors-test-scenarios-war-bare
 # Build: docker build --target ors-test-scenarios-war-bare --tag ors-test-scenarios-war-bare:latest -f ors-test-scenarios/src/test/resources/Dockerfile .
 
-RUN apt update && apt install -y zip unzip software-properties-common && \
+RUN apt-get update && apt-get install -y software-properties-common=0.99.22.9 unzip=6.0-26ubuntu3 zip=3.0-12build2 && \
     add-apt-repository ppa:rmescandon/yq && \
-    apt update && apt install -y yq
+    apt-get update && apt-get install -y yq && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 ARG CONTAINER_WORK_DIR
 ARG CONTAINER_BUILD_DIR
 
 # Create necessary directories and copy test files
-RUN mkdir -p $CONTAINER_WORK_DIR/logs $CONTAINER_WORK_DIR/files $CONTAINER_WORK_DIR/graphs $CONTAINER_WORK_DIR/elevation_cache \
-    $CONTAINER_WORK_DIR/graph_repo
+RUN mkdir -p "$CONTAINER_WORK_DIR"/logs  \
+    "$CONTAINER_WORK_DIR"/files  \
+    "$CONTAINER_WORK_DIR"/graphs  \
+    "$CONTAINER_WORK_DIR"/elevation_cache \
+    "$CONTAINER_WORK_DIR"/graph_repo
 
 # Copy the test files
 COPY --from=ors-test-scenario-builder $CONTAINER_BUILD_DIR/ors-api/target/ors.war /usr/local/tomcat/webapps/ors.war
@@ -140,9 +153,9 @@ FROM ors-test-scenarios-maven-bare AS ors-test-scenarios-maven
 
 ARG CONTAINER_WORK_DIR
 
-RUN mv $CONTAINER_WORK_DIR/ors-config.yml.deactivated $CONTAINER_WORK_DIR/ors-config.yml
+RUN mv "$CONTAINER_WORK_DIR"/ors-config.yml.deactivated "$CONTAINER_WORK_DIR"/ors-config.yml
 
-COPY ors-test-scenarios/src/test/resources/maven-entrypoint.sh $CONTAINER_WORK_DIR/maven-entrypoint.sh
+COPY maven-entrypoint.sh $CONTAINER_WORK_DIR/maven-entrypoint.sh
 
 ENV JAVA_OPTS="-Xmx350M"
 
@@ -158,7 +171,7 @@ FROM ors-test-scenarios-jar-bare AS ors-test-scenarios-jar
 
 ARG CONTAINER_WORK_DIR
 
-RUN mv $CONTAINER_WORK_DIR/ors-config.yml.deactivated $CONTAINER_WORK_DIR/ors-config.yml
+RUN mv "$CONTAINER_WORK_DIR"/ors-config.yml.deactivated "$CONTAINER_WORK_DIR"/ors-config.yml
 
 ENV JAVA_OPTS="-Xmx350M"
 
@@ -174,7 +187,7 @@ FROM ors-test-scenarios-war-bare AS ors-test-scenarios-war
 
 ARG CONTAINER_WORK_DIR
 
-RUN mv $CONTAINER_WORK_DIR/ors-config.yml.deactivated $CONTAINER_WORK_DIR/ors-config.yml && \
+RUN mv "$CONTAINER_WORK_DIR"/ors-config.yml.deactivated "$CONTAINER_WORK_DIR"/ors-config.yml && \
     echo 'export JAVA_OPTS="$JAVA_OPTS -Dors.config.location=/home/ors/openrouteservice/ors-config.yml"' >> /usr/local/tomcat/bin/setenv.sh
 
 ENV JAVA_OPTS="-Xmx350M"
