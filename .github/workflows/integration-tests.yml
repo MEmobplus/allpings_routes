@@ -100,6 +100,13 @@ jobs:
         run: |
           echo "Running integration tests"
           mvn -pl ors-test-scenarios test -Dtest=ConfigEnvironmentTest
+      - name: Delete previously cached graph
+        continue-on-error: true
+        run: |
+          gh extension install actions/gh-actions-cache
+          gh actions-cache delete "${{ runner.os }}-ors-test-scenarios-graphs-integrationtests-${{ env.docker_id_after_build }}" --confirm
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Save the graphs to cache
         uses: actions/cache/save@v4
         with:
