@@ -159,7 +159,7 @@ public abstract class ContainerInitializer {
                         .withFileFromPath("ors-config.yml", rootPath.resolve("ors-config.yml"))
                         .withFileFromPath(".dockerfile", rootPath.resolve("ors-test-scenarios/src/test/resources/Dockerfile.dockerignore"))
                         // Special case for maven container entrypoint. This is not needed for the other containers.
-                        .withFileFromPath("./ors-test-scenarios/src/test/resources/maven-entrypoint.sh", Path.of("./src/test/resources/maven-entrypoint.sh"))
+                        .withFileFromPath("maven-entrypoint.sh", rootPath.resolve("ors-test-scenarios/src/test/resources/maven-entrypoint.sh"))
                         .withTarget(containerTestImage.getName())
                         .withBuildImageCmdModifier(cmd -> cmd.withCacheFrom(cacheChain))
         )
