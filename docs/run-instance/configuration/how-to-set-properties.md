@@ -283,6 +283,6 @@ The internal value for the specific profile wins over the user's `profile_defaul
 The configured profile properties in `ors.engine.profiles.<profile>.build` (and `ors.engine.profile_default.build`)
 are used to build a graph.
 
-But when openrouteservice is loading graphs instead of building them,
-the build parameters that were used to build a graph are also loaded from the file `graphs/<profile>/graph_info.yml`.
-The so loaded properties override the configured build properties for the affected routing profile.    
+But when openrouteservice is loading a graph instead of building it,
+the parameters that were used to build this graph are loaded together with this graph
+from the file `graphs/<profile>/graph_info.yml` and override the configured build properties for this profile.    
