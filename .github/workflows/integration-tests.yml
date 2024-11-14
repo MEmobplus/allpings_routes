@@ -93,12 +93,12 @@ jobs:
           path: |
             ors-test-scenario-builder.tar
           key: ${{ runner.os }}-ors-test-scenario-builder
-      - name: Save the shared graphs to the cache
-        uses: actions/cache/save@v4
-        with:
-          path: ors-test-scenarios/graphs-integrationtests
-          key: ${{ runner.os }}-ors-test-scenarios-graphs-integrationtests-${{ steps.build-one-shot-image.outputs.docker_id_after_build }}
       - name: Run integration tests
         run: |
           echo "Running integration tests"
           mvn -pl ors-test-scenarios test -Dtest=ConfigEnvironmentTest
+      - name: Save the graphs to cache
+        uses: actions/cache/save@v4
+        with:
+          path: ors-test-scenarios/graphs-integrationtests
+          key: ${{ runner.os }}-ors-test-scenarios-graphs-integrationtests-${{ steps.build-one-shot-image.outputs.docker_id_after_build }}
