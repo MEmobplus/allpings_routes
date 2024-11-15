@@ -4,7 +4,7 @@
 
 ##### General server settings #####
 server:
-  port: 8082
+  port: 8084
   error:
     whitelabel:
       enabled: false
@@ -82,7 +82,7 @@ ors:
     isochrones:
       enabled: true
       attribution: openrouteservice.org, OpenStreetMap contributors
-      maximum_locations: 2
+      maximum_locations: 50
       maximum_intervals: 1
       allow_compute_area: true
       maximum_range_distance_default: 50000
