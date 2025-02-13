@@ -102,7 +102,7 @@ ors:
 #      maximum_locations: 5000
 #  ##### ORS engine settings #####
   engine:
-    source_file: ors-api/src/test/files/heidelberg.osm.gz
+    source_file: ors-api/src/main/gcc-states-latest.osm.pbf
 #    init_threads: 1
 #    preparation_mode: false
 #    graphs_root_path: ./graphs
