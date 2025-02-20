@@ -60,7 +60,7 @@ public class OpenAPIConfig {
     private List<Server> generateServers(ServletContext servletContext) {
         ArrayList<Server> listOfServers = new ArrayList<>();
         // live API server
-        listOfServers.add(new Server().url("https://ors.allpings.com").description("Openrouteservice API"));
+        listOfServers.add(new Server().url("https://ors.allpings.com/ors").description("Openrouteservice API"));
 
         // dynamic local instances
         ServerVariable ports = new ServerVariable();
